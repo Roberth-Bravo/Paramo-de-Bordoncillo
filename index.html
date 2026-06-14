@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Páramo de Bordoncillo — Ruta Ecoturística</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=Jost:wght@300;400;500;600&family=DM+Mono:wght@400&display=swap');
+
+:root {
+  /* Colores vivos inspirados en el páramo */
+  --musgo:       #2d6a2f;
+  --musgo-mid:   #3d8c40;
+  --hoja:        #5cb85c;
+  --hoja-clara:  #82d67a;
+  --niebla:      #e8f5e2;
+  --agua:        #4a9aba;
+  --agua-clara:  #7ec8e3;
+  --cielo:       #c8e8f5;
+  --tierra:      #8b6340;
+  --oro:         #d4a843;
+  --oro-claro:   #f0c866;
+
+  /* Fondos claros y vibrantes */
+  --bg:          #0d1f0e;
+  --bg-section:  #111e0f;
+  --bg-alt:      #152815;
+
+  /* Superficies */
+  --surface:     rgba(61,140,64,0.1);
+  --surface-hi:  rgba(61,140,64,0.18);
+  --border:      rgba(92,184,92,0.2);
+  --border-hi:   rgba(92,184,92,0.45);
+  --border-warm: rgba(212,168,67,0.35);
+
+  /* Texto — claro y legible */
+  --text:        #e8f5e2;
+  --text-dim:    #a8cca0;
+  --text-muted:  #6a9a62;
+
+  /* Acento principal */
+  --accent:      #7ee86a;
+  --accent-glow: rgba(126,232,106,0.35);
+  --accent-dim:  rgba(126,232,106,0.12);
+
+  --danger:      #e87a5a;
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:'Jost',sans-serif;
+  font-weight:400;
+  line-height:1.8;
+  overflow-x:hidden;
+  cursor:none;
+}
+
+/* ── CURSOR ── */
+#cur-dot{
+  position:fixed;z-index:9999;pointer-events:none;
+  width:11px;height:11px;border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 14px var(--accent),0 0 30px var(--accent-glow);
+  transform:translate(-50%,-50%);
+  transition:width .15s,height .15s;
+  mix-blend-mode:screen;
+}
+#cur-ring{
+  position:fixed;z-index:9998;pointer-events:none;
+  width:36px;height:36px;border-radius:50%;
+  border:1.5px solid rgba(126,232,106,.4);
+  transform:translate(-50%,-50%);
+  transition:width .25s,height .25s;
+}
+body.cur-hover #cur-dot{width:18px;height:18px;}
+body.cur-hover #cur-ring{width:62px;height:62px;}
+
+/* ── CANVAS ── */
+#cv-mist,#cv-pts{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#cv-mist{opacity:.55;}
+#cv-pts{opacity:.25;}
+
+/* ── NAV ── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:200;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 52px;height:66px;
+  background:rgba(13,31,14,.8);
+  backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+  transition:background .4s;
+}
+nav.scrolled{background:rgba(13,31,14,.97);}
+.nav-logo{
+  display:flex;align-items:center;gap:10px;text-decoration:none;
+  font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:700;
+  color:var(--niebla);letter-spacing:1px;
+}
+.nav-leaf{font-size:1.3rem;animation:leafBob 4s ease-in-out infinite;}
+@keyframes leafBob{0%,100%{transform:rotate(-6deg);}50%{transform:rotate(5deg) scale(1.1);}}
+.nav-links{display:flex;gap:28px;list-style:none;}
+.nav-links a{
+  color:var(--text-dim);text-decoration:none;
+  font-family:'DM Mono',monospace;font-size:.65rem;
+  letter-spacing:2px;text-transform:uppercase;
+  transition:color .25s;
+}
+.nav-links a:hover{color:var(--accent);}
+.nav-cta{
+  display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(135deg,var(--musgo),var(--musgo-mid));
+  color:var(--niebla);padding:9px 22px;border-radius:99px;
+  font-family:'DM Mono',monospace;font-size:.63rem;
+  letter-spacing:2px;text-transform:uppercase;text-decoration:none;
+  border:1px solid rgba(92,184,92,.35);
+  box-shadow:0 0 22px rgba(61,140,64,.5);
+  transition:all .3s;
+}
+.nav-cta:hover{
+  background:linear-gradient(135deg,var(--musgo-mid),var(--hoja));
+  box-shadow:0 0 36px rgba(126,232,106,.35);
+  transform:translateY(-2px);
+}
+.hamburger{
+  display:none;flex-direction:column;gap:5px;
+  background:none;border:none;cursor:pointer;padding:4px;
+}
+.hamburger span{
+  display:block;width:24px;height:1.5px;
+  background:var(--accent);border-radius:2px;
+  transition:transform .3s,opacity .3s;
+}
+.hamburger.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg);}
+.hamburger.open span:nth-child(2){opacity:0;}
+.hamburger.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg);}
+.mobile-menu{
+  display:none;position:fixed;top:66px;left:0;right:0;z-index:190;
+  background:rgba(13,31,14,.98);border-bottom:1px solid var(--border);
+  flex-direction:column;
+}
+.mobile-menu.open{display:flex;}
+.mobile-menu a{
+  color:var(--text-dim);text-decoration:none;
+  font-family:'DM Mono',monospace;font-size:.8rem;
+  letter-spacing:2px;text-transform:uppercase;
+  padding:18px 28px;border-bottom:1px solid var(--border);
+  transition:color .2s,background .2s;
+}
+.mobile-menu a:hover{color:var(--accent);background:rgba(126,232,106,.05);}
+
+/* ── HERO ── */
+.hero{
+  position:relative;height:100svh;min-height:580px;
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;overflow:hidden;z-index:2;
+}
+.hero-bg{
+  position:absolute;inset:0;
+  background:linear-gradient(160deg,#091a09 0%,#0d2610 40%,#091520 100%);
+}
+.hero-vignette{
+  position:absolute;inset:0;z-index:1;
+  background:
+    radial-gradient(ellipse 85% 65% at 50% 100%,rgba(61,140,64,.18) 0%,transparent 65%),
+    radial-gradient(ellipse 50% 40% at 80% 10%,rgba(74,154,186,.1) 0%,transparent 60%),
+    linear-gradient(to bottom,rgba(13,31,14,.2) 0%,transparent 35%,rgba(13,31,14,.88) 100%);
+}
+.hero-scanline{
+  position:absolute;left:0;right:0;height:1px;z-index:2;
+  background:linear-gradient(to right,transparent,rgba(126,232,106,.15),transparent);
+  animation:scanDown 11s linear infinite;
+}
+@keyframes scanDown{
+  0%{top:-2px;opacity:0;}5%{opacity:1;}95%{opacity:.4;}100%{top:100%;opacity:0;}
+}
+.hero-content{
+  position:relative;z-index:3;padding:20px;
+  display:flex;flex-direction:column;align-items:center;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:9px;
+  border:1px solid rgba(126,232,106,.28);
+  background:rgba(126,232,106,.07);
+  padding:7px 20px;border-radius:99px;margin-bottom:28px;
+  font-family:'DM Mono',monospace;font-size:.6rem;
+  letter-spacing:2.5px;color:var(--niebla);text-transform:uppercase;
+  opacity:0;animation:fsdDown .7s .2s forwards;
+}
+.badge-dot{
+  width:7px;height:7px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 10px var(--accent);
+  animation:blink 2s infinite;
+}
+@keyframes blink{0%,100%{opacity:1;}50%{opacity:.15;}}
+.hero-title{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(2.8rem,9vw,7rem);
+  font-weight:900;line-height:.95;
+  color:var(--niebla);letter-spacing:-1px;
+  text-shadow:0 4px 50px rgba(13,31,14,.9),0 0 100px rgba(126,232,106,.12);
+  margin-bottom:14px;
+  opacity:0;animation:fsdDown .9s .45s forwards;
+}
+.hero-title .gr{
+  display:block;font-style:italic;font-weight:700;
+  background:linear-gradient(135deg,var(--hoja-clara) 0%,var(--niebla) 45%,var(--agua-clara) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 24px rgba(126,232,106,.5));
+}
+.hero-sub{
+  font-family:'DM Mono',monospace;font-size:.72rem;
+  letter-spacing:4px;color:var(--text-muted);text-transform:uppercase;
+  margin-bottom:44px;opacity:0;animation:fsdDown .7s .65s forwards;
+}
+.hero-btns{
+  display:flex;gap:14px;flex-wrap:wrap;justify-content:center;
+  opacity:0;animation:fsdDown .7s .85s forwards;
+}
+.btn-prime{
+  display:inline-flex;align-items:center;gap:10px;
+  background:linear-gradient(135deg,var(--musgo-mid),var(--musgo));
+  color:var(--niebla);padding:15px 34px;border-radius:99px;
+  border:1px solid rgba(92,184,92,.4);
+  font-family:'DM Mono',monospace;font-size:.68rem;
+  font-weight:500;letter-spacing:2px;text-transform:uppercase;text-decoration:none;
+  box-shadow:0 6px 28px rgba(45,106,47,.55);
+  transition:all .35s;
+}
+.btn-prime:hover{
+  background:linear-gradient(135deg,var(--hoja),var(--musgo-mid));
+  color:#fff;box-shadow:0 10px 44px rgba(92,184,92,.6);
+  transform:translateY(-3px);
+}
+.btn-ghost{
+  display:inline-flex;align-items:center;gap:10px;
+  background:transparent;color:var(--text-dim);
+  padding:15px 34px;border-radius:99px;
+  border:1px solid rgba(232,245,226,.18);
+  font-family:'DM Mono',monospace;font-size:.68rem;
+  letter-spacing:2px;text-transform:uppercase;text-decoration:none;transition:all .3s;
+}
+.btn-ghost:hover{color:var(--niebla);border-color:rgba(232,245,226,.35);background:rgba(232,245,226,.06);}
+.hero-scroll{
+  position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:3;
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  font-family:'DM Mono',monospace;font-size:.52rem;
+  letter-spacing:3px;color:var(--text-muted);
+  animation:scrollBounce 3s ease-in-out infinite;
+}
+.hero-scroll-bar{width:1px;height:44px;background:linear-gradient(to bottom,var(--accent),transparent);}
+@keyframes scrollBounce{0%,100%{transform:translateX(-50%) translateY(0);}50%{transform:translateX(-50%) translateY(8px);}}
+.hud-c{position:absolute;width:44px;height:44px;z-index:3;pointer-events:none;}
+.hud-c::before,.hud-c::after{content:'';position:absolute;background:var(--accent);opacity:.35;}
+.hud-c::before{width:100%;height:1px;top:0;left:0;}
+.hud-c::after{width:1px;height:100%;top:0;left:0;}
+.hud-c.tl{top:86px;left:20px;}
+.hud-c.tr{top:86px;right:20px;transform:scaleX(-1);}
+.hud-c.bl{bottom:74px;left:20px;transform:scaleY(-1);}
+.hud-c.br{bottom:74px;right:20px;transform:scale(-1);}
+@keyframes fsdDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:none;}}
+
+/* ── STATS BAR ── */
+.stats-bar{
+  position:relative;z-index:2;
+  display:grid;grid-template-columns:repeat(4,1fr);
+  background:rgba(13,31,14,.92);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+  backdrop-filter:blur(20px);
+}
+.stat-item{
+  display:flex;flex-direction:column;align-items:center;
+  padding:28px 16px;border-right:1px solid var(--border);
+  position:relative;overflow:hidden;transition:background .35s;cursor:default;
+}
+.stat-item:last-child{border-right:none;}
+.stat-item:hover{background:rgba(61,140,64,.15);}
+.stat-icon-wrap{
+  display:flex;align-items:center;justify-content:center;
+  width:54px;height:54px;border-radius:50%;margin-bottom:10px;
+  background:radial-gradient(circle at 32% 28%,rgba(126,232,106,.22),rgba(74,154,186,.07));
+  border:1px solid var(--border);
+  transition:transform .5s cubic-bezier(.34,1.56,.64,1),box-shadow .4s,border-color .4s,background .4s;
+}
+.stat-item:hover .stat-icon-wrap{
+  transform:scale(1.15) rotate(8deg);
+  border-color:var(--border-hi);
+  box-shadow:0 0 28px var(--accent-glow);
+  background:radial-gradient(circle at 32% 28%,rgba(126,232,106,.38),rgba(74,154,186,.14));
+}
+.stat-item:nth-child(2) .stat-icon-wrap{background:radial-gradient(circle at 32% 28%,rgba(240,200,102,.22),rgba(212,168,67,.06));}
+.stat-item:nth-child(2):hover .stat-icon-wrap{background:radial-gradient(circle at 32% 28%,rgba(240,200,102,.4),rgba(212,168,67,.14));box-shadow:0 0 28px rgba(240,200,102,.4);}
+.stat-item:nth-child(3) .stat-icon-wrap{background:radial-gradient(circle at 32% 28%,rgba(126,200,227,.22),rgba(74,154,186,.08));}
+.stat-item:nth-child(3):hover .stat-icon-wrap{background:radial-gradient(circle at 32% 28%,rgba(126,200,227,.4),rgba(74,154,186,.16));box-shadow:0 0 28px rgba(126,200,227,.4);}
+.stat-item:nth-child(4) .stat-icon-wrap{background:radial-gradient(circle at 32% 28%,rgba(232,122,90,.2),rgba(212,168,67,.06));}
+.stat-item:nth-child(4):hover .stat-icon-wrap{background:radial-gradient(circle at 32% 28%,rgba(232,122,90,.36),rgba(212,168,67,.14));box-shadow:0 0 28px rgba(232,122,90,.35);}
+.stat-icon{font-size:1.5rem;}
+.stat-num{
+  font-family:'Playfair Display',serif;font-size:1.7rem;font-weight:700;
+  color:var(--accent);text-shadow:0 0 18px var(--accent-glow);line-height:1;
+}
+.stat-lbl{
+  font-family:'DM Mono',monospace;font-size:.52rem;
+  letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;
+  margin-top:5px;text-align:center;
+}
+.stat-fill{
+  position:absolute;bottom:0;left:0;height:2px;
+  background:linear-gradient(to right,transparent,var(--accent),transparent);
+  width:0%;transition:width 1.8s ease;
+}
+.stat-item:nth-child(2) .stat-fill{background:linear-gradient(to right,transparent,var(--oro-claro),transparent);}
+.stat-item:nth-child(3) .stat-fill{background:linear-gradient(to right,transparent,var(--agua-clara),transparent);}
+.stat-item:nth-child(4) .stat-fill{background:linear-gradient(to right,transparent,var(--danger),transparent);}
+
+/* ── SECCIONES BASE ── */
+.section{position:relative;z-index:2;padding:96px 52px;}
+.section-alt{
+  background:linear-gradient(160deg,rgba(21,40,21,.6) 0%,rgba(13,31,14,.3) 100%);
+  border-top:1px solid var(--border);border-bottom:1px solid var(--border);
+}
+.container{max-width:1160px;margin:0 auto;}
+.sec-head{display:flex;align-items:center;gap:18px;margin-bottom:60px;}
+.sec-num{
+  font-family:'DM Mono',monospace;font-size:.58rem;
+  color:var(--accent);letter-spacing:3px;text-transform:uppercase;opacity:.6;flex-shrink:0;
+}
+.sec-line{flex:0 0 48px;height:1px;background:var(--border-hi);}
+
+h2{
+  font-family:'Playfair Display',serif;
+  font-size:clamp(1.9rem,4vw,2.9rem);
+  font-weight:700;color:var(--niebla);
+  letter-spacing:-.5px;line-height:1.1;
+}
+h2 em{
+  font-style:italic;
+  background:linear-gradient(90deg,var(--hoja-clara),var(--agua-clara));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 14px var(--accent-glow));
+}
+
+/* ── INFO ── */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:64px;align-items:start;}
+.info-ps p{
+  color:var(--text-dim);
+  padding:14px 16px 14px 20px;
+  margin-bottom:12px;
+  border-left:2px solid var(--border);
+  border-radius:0 6px 6px 0;
+  font-size:1rem;
+  line-height:1.8;
+  transition:border-color .3s,background .3s,color .3s;
+}
+.info-ps p:hover{
+  border-color:var(--accent);
+  background:rgba(126,232,106,.05);
+  color:var(--niebla);
+}
+.info-ps strong{color:var(--hoja-clara);}
+
+.eco-pills{display:flex;flex-wrap:wrap;gap:8px;margin-top:26px;}
+.eco-pill{
+  display:inline-flex;align-items:center;gap:7px;
+  border:1px solid var(--border);padding:7px 15px;border-radius:99px;
+  font-family:'DM Mono',monospace;font-size:.57rem;
+  letter-spacing:1px;color:var(--text-dim);text-transform:uppercase;
+  transition:all .25s;cursor:default;
+}
+.eco-pill:hover{
+  border-color:var(--accent);color:var(--accent);
+  background:rgba(126,232,106,.07);
+  transform:translateY(-2px);
+}
+.eco-pill-dot{width:6px;height:6px;border-radius:50%;background:var(--hoja-clara);flex-shrink:0;transition:box-shadow .25s;}
+.eco-pill:nth-child(2) .eco-pill-dot{background:var(--agua-clara);}
+.eco-pill:nth-child(2):hover{border-color:var(--agua-clara);color:var(--agua-clara);background:rgba(126,200,227,.08);}
+.eco-pill:nth-child(3) .eco-pill-dot{background:var(--oro-claro);}
+.eco-pill:nth-child(3):hover{border-color:var(--oro-claro);color:var(--oro-claro);background:rgba(240,200,102,.08);}
+.eco-pill:nth-child(5) .eco-pill-dot{background:var(--cielo);}
+.eco-pill:nth-child(5):hover{border-color:var(--cielo);color:var(--cielo);background:rgba(200,232,245,.08);}
+.eco-pill:nth-child(6) .eco-pill-dot{background:var(--oro-claro);}
+.eco-pill:nth-child(6):hover{border-color:var(--oro-claro);color:var(--oro-claro);background:rgba(240,200,102,.08);}
+.eco-pill:hover .eco-pill-dot{box-shadow:0 0 8px currentColor;}
+
+.info-visual{position:relative;}
+.img-wrap{position:relative;border-radius:14px;overflow:hidden;}
+.img-wrap img{width:100%;display:block;filter:saturate(.6) brightness(.78);transition:filter .7s;}
+.img-wrap:hover img{filter:saturate(.9) brightness(.92);}
+
+/* Carrusel de imágenes */
+.carousel{position:relative;width:100%;height:560px;overflow:hidden;}
+.carousel-slide{
+  position:absolute;inset:0;width:100%;height:100%;
+  object-fit:cover;display:block;
+  filter:saturate(.6) brightness(.78);
+  transform:translateX(100%);
+  transition:transform 1.1s cubic-bezier(.65,0,.35,1),filter .7s;
+  will-change:transform;
+}
+.carousel-slide.active{transform:translateX(0);z-index:2;}
+.carousel-slide.prev{transform:translateX(-100%);z-index:1;}
+.carousel-slide.notransition{transition:none;}
+.img-wrap:hover .carousel-slide.active{filter:saturate(.9) brightness(.92);}
+.carousel-dots{
+  position:absolute;top:18px;right:18px;z-index:4;
+  display:flex;gap:7px;
+}
+.cdot{
+  width:8px;height:8px;border-radius:50%;
+  background:rgba(232,245,226,.28);
+  border:1px solid rgba(232,245,226,.4);
+  transition:all .35s;cursor:pointer;
+}
+.cdot.active{
+  background:var(--accent);border-color:var(--accent);
+  box-shadow:0 0 10px var(--accent-glow);
+  width:24px;border-radius:5px;
+}
+
+/* Placeholder cuando no hay imagen */
+.img-placeholder{
+  width:100%;height:400px;border-radius:14px;
+  background:linear-gradient(160deg,rgba(45,106,47,.35) 0%,rgba(61,140,64,.2) 40%,rgba(74,154,186,.2) 100%);
+  border:1px solid var(--border);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;
+}
+.img-placeholder-icon{font-size:4rem;opacity:.5;}
+.img-placeholder p{
+  font-family:'DM Mono',monospace;font-size:.65rem;
+  letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;
+  border:none;padding:0;margin:0;
+}
+.img-placeholder p:hover{border:none;background:none;}
+
+.bracket{position:absolute;width:32px;height:32px;pointer-events:none;z-index:3;}
+.bracket::before,.bracket::after{content:'';position:absolute;background:var(--accent);opacity:.65;}
+.bracket::before{width:100%;height:1.5px;}
+.bracket::after{width:1.5px;height:100%;}
+.bracket.tl{top:-4px;left:-4px;}
+.bracket.tr{top:-4px;right:-4px;transform:scaleX(-1);}
+.bracket.bl{bottom:-4px;left:-4px;transform:scaleY(-1);}
+.bracket.br{bottom:-4px;right:-4px;transform:scale(-1);}
+.img-caption{
+  position:absolute;bottom:0;left:0;right:0;
+  padding:40px 20px 16px;
+  background:linear-gradient(to top,rgba(13,31,14,.92),transparent);
+  display:flex;align-items:flex-end;justify-content:space-between;
+}
+.cap-loc{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:2px;color:var(--accent);text-transform:uppercase;}
+.cap-alt{font-family:'DM Mono',monospace;font-size:.6rem;letter-spacing:2px;color:var(--text-dim);}
+
+.data-panel{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:28px;}
+.dp{
+  background:var(--surface);border:1px solid var(--border);
+  padding:20px 18px;transition:background .3s;
+}
+.dp:hover{background:var(--surface-hi);}
+.dp-lbl{
+  font-family:'DM Mono',monospace;font-size:.54rem;
+  letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;
+}
+.dp-val{
+  font-family:'Playfair Display',serif;font-size:1.15rem;
+  color:var(--accent);font-weight:700;margin-top:4px;
+}
+.dp-sub{font-size:.8rem;color:var(--text-dim);margin-top:2px;}
+
+/* ── LOGISTICS ── */
+.log-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;}
+.log-card{
+  background:var(--surface);border:1px solid var(--border);
+  padding:40px 30px;position:relative;overflow:hidden;
+  border-radius:4px;transition:all .35s;
+}
+.log-card:hover{border-color:var(--border-hi);background:var(--surface-hi);}
+.log-top{
+  position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(to right,transparent,var(--accent),transparent);
+  opacity:0;transition:opacity .35s;
+}
+.log-card:hover .log-top{opacity:1;}
+.log-glow{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 0%,rgba(126,232,106,.08) 0%,transparent 65%);
+  opacity:0;transition:opacity .35s;pointer-events:none;
+}
+.log-card:hover .log-glow{opacity:1;}
+.log-icon-wrap{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:60px;height:60px;border-radius:16px;margin-bottom:18px;
+  background:linear-gradient(135deg,rgba(126,232,106,.16),rgba(74,154,186,.06));
+  border:1px solid var(--border);position:relative;z-index:1;
+  transition:transform .5s cubic-bezier(.34,1.56,.64,1),box-shadow .4s,border-color .4s,background .4s;
+}
+.log-icon{font-size:1.8rem;display:block;}
+.log-card:hover .log-icon-wrap{
+  transform:scale(1.12) rotate(-8deg);
+  border-color:var(--border-hi);
+  box-shadow:0 10px 30px rgba(126,232,106,.25);
+}
+.log-card:nth-child(2) .log-icon-wrap{background:linear-gradient(135deg,rgba(126,200,227,.18),rgba(74,154,186,.06));}
+.log-card:nth-child(2):hover .log-icon-wrap{box-shadow:0 10px 30px rgba(126,200,227,.3);border-color:rgba(126,200,227,.5);}
+.log-card:nth-child(3) .log-icon-wrap{background:linear-gradient(135deg,rgba(240,200,102,.18),rgba(212,168,67,.06));}
+.log-card:nth-child(3):hover .log-icon-wrap{box-shadow:0 10px 30px rgba(240,200,102,.3);border-color:rgba(240,200,102,.5);}
+.log-card:nth-child(4) .log-icon-wrap{background:linear-gradient(135deg,rgba(126,232,106,.16),rgba(212,168,67,.06));}
+.log-card:nth-child(4):hover .log-icon-wrap{box-shadow:0 10px 30px rgba(126,232,106,.25);}
+.log-card:nth-child(5) .log-icon-wrap{background:linear-gradient(135deg,rgba(126,200,227,.18),rgba(126,232,106,.06));}
+.log-card:nth-child(5):hover .log-icon-wrap{box-shadow:0 10px 30px rgba(126,200,227,.3);border-color:rgba(126,200,227,.5);}
+.log-card:nth-child(6) .log-icon-wrap{background:linear-gradient(135deg,rgba(240,200,102,.18),rgba(126,232,106,.06));}
+.log-card:nth-child(6):hover .log-icon-wrap{box-shadow:0 10px 30px rgba(240,200,102,.3);border-color:rgba(240,200,102,.5);}
+.log-card h3{
+  font-family:'Jost',sans-serif;font-size:.88rem;font-weight:600;
+  color:var(--niebla);letter-spacing:.5px;margin-bottom:10px;
+}
+.log-card p{color:var(--text-dim);font-size:.95rem;line-height:1.75;}
+
+/* ── PLANS ── */
+.plans-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.plan{
+  background:var(--surface);border:1px solid var(--border);
+  padding:48px 40px;position:relative;overflow:hidden;
+  border-radius:14px;transition:border-color .3s,background .3s;
+}
+.plan.featured{
+  border-color:rgba(92,184,92,.38);
+  background:rgba(45,106,47,.1);
+}
+.plan-glow{
+  position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse at 50% -10%,rgba(126,232,106,.09) 0%,transparent 58%);
+  opacity:0;transition:opacity .35s;
+}
+.plan:hover .plan-glow,.plan.featured .plan-glow{opacity:1;}
+.plan:hover{border-color:var(--border-hi);}
+.plan-badge{
+  display:inline-block;margin-bottom:16px;
+  font-family:'DM Mono',monospace;font-size:.58rem;
+  letter-spacing:2px;text-transform:uppercase;
+  color:var(--bg);background:var(--accent);padding:6px 16px;border-radius:99px;
+  animation:badgePulse 2.6s ease-in-out infinite;
+}
+@keyframes badgePulse{
+  0%,100%{box-shadow:0 0 0 0 var(--accent-glow);}
+  50%{box-shadow:0 0 0 7px transparent,0 0 18px var(--accent-glow);}
+}
+.plan h3{
+  font-family:'Playfair Display',serif;font-size:1.35rem;
+  font-weight:700;color:var(--niebla);margin-bottom:18px;
+}
+.plan p{color:var(--text-dim);font-size:.97rem;margin-bottom:12px;line-height:1.75;}
+.plan-list{
+  list-style:none;margin-top:20px;
+  border-top:1px solid var(--border);padding-top:18px;
+}
+.plan-list li{
+  display:flex;align-items:center;gap:10px;
+  color:var(--text-dim);font-size:.93rem;padding:7px 0;
+}
+.plan-list li::before{
+  content:'';width:6px;height:6px;border-radius:50%;
+  background:var(--hoja-clara);flex-shrink:0;
+  box-shadow:0 0 6px rgba(130,214,122,.5);
+}
+
+/* ── PRICING ── */
+.pricing-grid{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
+.price-card{
+  background:var(--surface);border:1px solid var(--border);
+  padding:50px 44px;position:relative;overflow:hidden;
+  border-radius:14px;transition:all .4s;
+}
+.price-card:hover{
+  border-color:var(--border-hi);
+  box-shadow:0 14px 52px rgba(45,106,47,.15);
+}
+.price-card h3{
+  font-family:'DM Mono',monospace;font-size:.67rem;font-weight:400;
+  letter-spacing:2.5px;text-transform:uppercase;color:var(--accent);margin-bottom:8px;
+}
+.price-amt{display:flex;align-items:baseline;gap:6px;margin:16px 0;}
+.price-cur{font-family:'Playfair Display',serif;font-size:1.3rem;color:var(--accent);}
+.price-num{
+  font-family:'Playfair Display',serif;font-size:4rem;
+  font-weight:900;color:var(--accent);line-height:1;
+  text-shadow:0 0 28px var(--accent-glow);
+}
+.price-unit{font-family:'DM Mono',monospace;font-size:.59rem;color:var(--text-muted);letter-spacing:2px;}
+.price-div{width:100%;height:1px;background:var(--border);margin:22px 0;}
+.price-card p{color:var(--text-dim);font-size:.97rem;margin-bottom:12px;line-height:1.75;}
+.price-card strong{color:var(--niebla);}
+.price-opt{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--border-warm);color:var(--oro-claro);
+  padding:5px 14px;border-radius:99px;margin-bottom:14px;
+  font-family:'DM Mono',monospace;font-size:.57rem;letter-spacing:2px;text-transform:uppercase;
+  animation:optGlow 2.6s ease-in-out infinite;
+}
+@keyframes optGlow{
+  0%,100%{box-shadow:0 0 0 0 rgba(212,168,67,0);}
+  50%{box-shadow:0 0 14px rgba(212,168,67,.35);}
+}
+
+/* ── RECOMENDACIONES ── */
+.rec-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+.rec-col{
+  background:var(--surface);border:1px solid var(--border);
+  padding:50px 42px;border-radius:4px;
+}
+.rec-col.yes{border-top:3px solid var(--accent);}
+.rec-col.no{border-top:3px solid var(--danger);}
+.rec-col h3{
+  font-family:'Jost',sans-serif;font-size:.9rem;font-weight:600;
+  letter-spacing:1px;text-transform:uppercase;margin-bottom:28px;
+  display:flex;align-items:center;gap:14px;
+}
+.rec-icon{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:38px;height:38px;border-radius:50%;flex-shrink:0;
+  font-size:1.05rem;transition:transform .4s cubic-bezier(.34,1.56,.64,1);
+}
+.rec-col:hover .rec-icon{transform:scale(1.12) rotate(8deg);}
+.rec-col.yes .rec-icon{background:rgba(126,232,106,.12);border:1px solid var(--accent);color:var(--accent);box-shadow:0 0 16px var(--accent-glow);}
+.rec-col.no .rec-icon{background:rgba(232,122,90,.12);border:1px solid var(--danger);color:var(--danger);box-shadow:0 0 16px rgba(232,122,90,.3);}
+.rec-col.yes h3{color:var(--accent);}
+.rec-col.no  h3{color:var(--danger);}
+.rec-col ul{list-style:none;}
+.rec-col ul li{
+  display:flex;align-items:center;gap:13px;
+  padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05);
+  color:var(--text-dim);font-size:.97rem;line-height:1.5;
+  transition:color .2s;
+}
+.rec-col ul li:hover{color:var(--niebla);}
+.rdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+.rec-col.yes .rdot{background:var(--accent);box-shadow:0 0 7px var(--accent);}
+.rec-col.no  .rdot{background:var(--danger);box-shadow:0 0 7px var(--danger);}
+
+/* ── MAPA ── */
+.map-wrap{position:relative;border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+#map{height:520px;}
+.leaflet-container{background:#0d1f0e !important;}
+.leaflet-control-zoom a{
+  background:rgba(13,31,14,.92) !important;color:var(--accent) !important;
+  border-color:var(--border) !important;font-weight:700 !important;
+}
+.leaflet-control-zoom a:hover{background:rgba(61,140,64,.2) !important;}
+.leaflet-popup-content-wrapper{
+  background:rgba(13,31,14,.97) !important;
+  border:1px solid var(--border-hi) !important;
+  border-radius:10px !important;
+  box-shadow:0 8px 40px rgba(13,31,14,.7) !important;
+  color:var(--text) !important;padding:0 !important;
+}
+.leaflet-popup-tip-container{display:none;}
+.leaflet-popup-close-button{color:var(--text-dim) !important;padding:8px !important;}
+.map-hud{
+  position:absolute;top:16px;left:16px;z-index:500;
+  background:rgba(13,31,14,.93);border:1px solid var(--border);
+  backdrop-filter:blur(14px);padding:14px 22px;border-radius:10px;pointer-events:none;
+}
+.map-hud-title{
+  font-family:'DM Mono',monospace;font-size:.57rem;
+  letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-bottom:4px;
+}
+.map-hud-val{font-family:'DM Mono',monospace;font-size:.87rem;color:var(--niebla);}
+.map-hud-dot{
+  display:inline-block;width:7px;height:7px;border-radius:50%;
+  background:var(--accent);box-shadow:0 0 10px var(--accent);
+  margin-right:7px;animation:blink 2s infinite;vertical-align:middle;
+}
+.map-layers{position:absolute;bottom:20px;right:16px;z-index:500;display:flex;flex-direction:column;gap:6px;}
+.mlb{
+  background:rgba(13,31,14,.92);border:1px solid var(--border);
+  color:var(--text-dim);padding:8px 18px;border-radius:99px;
+  font-family:'DM Mono',monospace;font-size:.57rem;
+  letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .25s;
+}
+.mlb:hover,.mlb.active{
+  border-color:var(--accent);color:var(--accent);
+  background:rgba(61,140,64,.18);
+}
+
+/* ── CTA BANNER ── */
+.cta-banner{
+  position:relative;z-index:2;overflow:hidden;
+  padding:96px 52px;
+  background:linear-gradient(160deg,rgba(21,40,21,.75) 0%,rgba(13,31,14,1) 100%);
+  border-top:1px solid var(--border);text-align:center;
+}
+.cta-banner::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(ellipse 72% 55% at 50% 120%,rgba(61,140,64,.14) 0%,transparent 65%);
+}
+.cta-banner h2{margin-bottom:16px;}
+.cta-banner p{color:var(--text-dim);max-width:540px;margin:0 auto 38px;font-size:1.02rem;line-height:1.8;}
+
+/* ── FOOTER ── */
+footer{
+  position:relative;z-index:2;
+  background:rgba(6,12,6,1);
+  border-top:1px solid var(--border);
+  padding:52px 52px 28px;
+}
+.footer-grid{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:44px;margin-bottom:40px;}
+.footer-logo{
+  font-family:'Playfair Display',serif;font-size:1.15rem;
+  font-weight:700;color:var(--niebla);margin-bottom:10px;
+}
+.footer-tagline{color:var(--text-muted);font-size:.87rem;line-height:1.75;}
+.footer-col h4{
+  font-family:'DM Mono',monospace;font-size:.57rem;
+  letter-spacing:2px;text-transform:uppercase;color:var(--accent);
+  opacity:.7;margin-bottom:16px;
+}
+.footer-col ul{list-style:none;}
+.footer-col ul li{margin-bottom:10px;}
+.footer-col ul li a{color:var(--text-muted);text-decoration:none;font-size:.87rem;transition:color .2s;}
+.footer-col ul li a:hover{color:var(--accent);}
+.footer-col p{color:var(--text-muted);font-size:.87rem;line-height:1.75;}
+.footer-bottom{
+  border-top:1px solid var(--border);padding-top:22px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;
+}
+.footer-copy{font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:2px;color:var(--text-muted);}
+.footer-signal{display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:.55rem;letter-spacing:2px;color:var(--text-muted);}
+.sig-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blink 2s infinite;}
+
+/* ── REVEAL ── */
+.reveal{
+  opacity:0;transform:translateY(32px);
+  transition:opacity .85s cubic-bezier(.25,.8,.25,1),transform .85s cubic-bezier(.25,.8,.25,1);
+}
+.reveal.visible{opacity:1;transform:none;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1024px){
+  .info-grid,.pricing-grid,.plans-grid,.rec-grid,.footer-grid{grid-template-columns:1fr;}
+  .log-grid{grid-template-columns:1fr 1fr;}
+  .data-panel{grid-template-columns:1fr 1fr;}
+  .carousel{height:440px;}
+}
+@media(max-width:768px){
+  nav{padding:0 18px;}
+  .nav-links,.nav-cta{display:none;}
+  .hamburger{display:flex;}
+  .section{padding:64px 18px;}
+  .stats-bar{grid-template-columns:1fr 1fr;}
+  .log-grid{grid-template-columns:1fr;}
+  .hud-c{display:none;}
+  footer{padding:38px 18px 20px;}
+  .footer-bottom{flex-direction:column;text-align:center;}
+  .cta-banner{padding:64px 20px;}
+  #map{height:380px;}
+  .map-layers{display:none;}
+  .carousel{height:300px;}
+  .carousel-dots{top:12px;right:12px;}
+}
+</style>
+</head>
+<body>
+
+<div id="cur-dot"></div>
+<div id="cur-ring"></div>
+<canvas id="cv-mist"></canvas>
+<canvas id="cv-pts"></canvas>
+
+<!-- NAV -->
+<nav>
+  <a href="#" class="nav-logo">
+    <span class="nav-leaf">🌿</span>
+    BORDONCILLO
+  </a>
+  <ul class="nav-links">
+    <li><a href="#info">Información</a></li>
+    <li><a href="#logistica">Logística</a></li>
+    <li><a href="#planes">Planes</a></li>
+    <li><a href="#costos">Costos</a></li>
+    <li><a href="#recomendaciones">Equipo</a></li>
+    <li><a href="#mapa">Mapa</a></li>
+  </ul>
+  <a href="https://wa.me/573137247884" target="_blank" class="nav-cta">📞 Reservar</a>
+  <button class="hamburger" aria-label="Menú"><span></span><span></span><span></span></button>
+</nav>
+<div class="mobile-menu">
+  <a href="#info">Información General</a>
+  <a href="#logistica">Aspectos Operativos</a>
+  <a href="#planes">Planes de Alimentación</a>
+  <a href="#costos">Costo del Viaje</a>
+  <a href="#recomendaciones">Recomendaciones</a>
+  <a href="#mapa">Mapa</a>
+  <a href="https://wa.me/573137247884" target="_blank">📞 Reservar Ahora</a>
+</div>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-vignette"></div>
+  <div class="hero-scanline"></div>
+  <div class="hud-c tl"></div><div class="hud-c tr"></div>
+  <div class="hud-c bl"></div><div class="hud-c br"></div>
+  <div class="hero-content">
+    <div class="hero-badge"><div class="badge-dot"></div>Ecosistema de Alta Montaña · Nariño, Colombia</div>
+    <h1 class="hero-title">Páramo de<span class="gr">Bordoncillo</span></h1>
+    <p class="hero-sub">Rosal del Monte · Buesaco · 3.200 m.s.n.m.</p>
+    <div class="hero-btns">
+      <a href="https://wa.me/573137247884" target="_blank" class="btn-prime">📞 Agendar Recorrido</a>
+      <a href="#info" class="btn-ghost">↓ Explorar</a>
+    </div>
+  </div>
+  <div class="hero-scroll"><div class="hero-scroll-bar"></div><span>SCROLL</span></div>
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar">
+  <div class="stat-item">
+    <div class="stat-icon-wrap"><span class="stat-icon">⛰️</span></div>
+    <span class="stat-num" data-val="3600" data-suf=" m">0 m</span>
+    <span class="stat-lbl">Altitud Máxima</span>
+    <div class="stat-fill"></div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-icon-wrap"><span class="stat-icon">💰</span></div>
+    <span class="stat-num" data-val="40000" data-suf=" COP">0</span>
+    <span class="stat-lbl">Por Persona</span>
+    <div class="stat-fill"></div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-icon-wrap"><span class="stat-icon">💧</span></div>
+    <span class="stat-num" data-val="4" data-suf=" lagunas">0</span>
+    <span class="stat-lbl">Lagunas Volcánicas</span>
+    <div class="stat-fill"></div>
+  </div>
+  <div class="stat-item">
+    <div class="stat-icon-wrap"><span class="stat-icon">🌡️</span></div>
+    <span class="stat-num" data-val="12" data-suf="°C">0°C</span>
+    <span class="stat-lbl">Temperatura Máx.</span>
+    <div class="stat-fill"></div>
+  </div>
+</div>
+
+<!-- INFORMACIÓN GENERAL -->
+<section class="section" id="info">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="sec-num">01</span><div class="sec-line"></div>
+      <h2>Información <em>General</em></h2>
+    </div>
+    <div class="info-grid">
+      <div class="info-ps reveal" data-delay="100">
+        <p>El Páramo o Volcán Bordoncillo se encuentra en el corregimiento Rosal del Monte, municipio de Buesaco, Nariño. Forma parte del sistema montañoso andino y es uno de los ecosistemas de alta montaña más representativos del suroccidente colombiano.</p>
+        <p>La zona se sitúa entre los 3.200 y los 3.600 metros sobre el nivel del mar, con temperaturas de 4 °C a 12 °C. Un ambiente frío y húmedo que favorece una biodiversidad única, altamente adaptada a condiciones extremas de viento y radiación solar.</p>
+        <p>Desde el punto de vista geológico, el Bordoncillo posee características asociadas a antiguos procesos volcánicos. En su territorio se encuentran lagunas de origen natural —conocidas localmente como <strong>cochas</strong>— fundamentales para la conservación hídrica del ecosistema.</p>
+        <p>Su valor paisajístico lo convierte en el destino ideal para senderismo ecológico, observación de flora y fauna endémica, educación ambiental y turismo de naturaleza responsable en los Andes colombianos.</p>
+        <div class="eco-pills">
+          <div class="eco-pill"><span class="eco-pill-dot"></span>Frailejones</div>
+          <div class="eco-pill"><span class="eco-pill-dot"></span>Lagunas Volcánicas</div>
+          <div class="eco-pill"><span class="eco-pill-dot"></span>Aves de Páramo</div>
+          <div class="eco-pill"><span class="eco-pill-dot"></span>Flora Endémica</div>
+          <div class="eco-pill"><span class="eco-pill-dot"></span>Niebla Andina</div>
+          <div class="eco-pill"><span class="eco-pill-dot"></span>Paisaje Volcánico</div>
+        </div>
+        <div class="data-panel">
+          <div class="dp"><div class="dp-lbl">Altitud</div><div class="dp-val">3.200–3.600</div><div class="dp-sub">m.s.n.m.</div></div>
+          <div class="dp"><div class="dp-lbl">Temperatura</div><div class="dp-val">4–12°C</div><div class="dp-sub">Promedio anual</div></div>
+          <div class="dp"><div class="dp-lbl">Ecosistema</div><div class="dp-val">Páramo</div><div class="dp-sub">Andino tropical</div></div>
+        </div>
+      </div>
+     <div class="info-visual reveal" data-delay="260">
+        <div class="img-wrap">
+          <div class="carousel" id="infoCarousel">
+            <img src="img/bordoncillo-1.jpg" alt="Páramo Bordoncillo - vista 1" class="carousel-slide active">
+            <img src="img/bordoncillo-2.jpg" alt="Páramo Bordoncillo - vista 2" class="carousel-slide">
+            <img src="img/bordoncillo-3.jpg" alt="Páramo Bordoncillo - vista 3" class="carousel-slide">
+            <img src="img/bordoncillo-4.jpg" alt="Páramo Bordoncillo - vista 4" class="carousel-slide">
+            <img src="img/bordoncillo-5.jpg" alt="Páramo Bordoncillo - vista 5" class="carousel-slide">
+          </div>
+
+          <div class="bracket tl"></div>
+          <div class="bracket tr"></div>
+          <div class="bracket bl"></div>
+          <div class="bracket br"></div>
+
+          <div class="carousel-dots">
+            <span class="cdot active"></span>
+            <span class="cdot"></span>
+            <span class="cdot"></span>
+            <span class="cdot"></span>
+            <span class="cdot"></span>
+          </div>
+
+          <div class="img-caption">
+            <span class="cap-loc">📍 Buesaco, Nariño</span>
+            <span class="cap-alt">3.400 m.s.n.m.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ASPECTOS OPERATIVOS -->
+<section class="section section-alt" id="logistica">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="sec-num">02</span><div class="sec-line"></div>
+      <h2>Aspectos <em>Operativos</em></h2>
+    </div>
+    <div class="log-grid">
+      <div class="log-card reveal" data-delay="0">
+        <div class="log-top"></div><div class="log-glow"></div>
+        <div class="log-icon-wrap"><span class="log-icon">🏠</span></div>
+        <h3>Punto de Encuentro</h3>
+        <p>El inicio oficial es la vivienda del guía local, donde se brinda una explicación completa del trayecto, altitud, condiciones climáticas y normas ambientales del páramo.</p>
+      </div>
+      <div class="log-card reveal" data-delay="110">
+        <div class="log-top"></div><div class="log-glow"></div>
+        <div class="log-icon-wrap"><span class="log-icon">🚗</span></div>
+        <h3>Logística Vehicular</h3>
+        <p>Estacionamiento para 2 automóviles y 5 motocicletas. Vehículos de mayor altura pueden continuar hasta la vivienda del segundo guía para facilitar el acceso.</p>
+      </div>
+      <div class="log-card reveal" data-delay="220">
+        <div class="log-top"></div><div class="log-glow"></div>
+        <div class="log-icon-wrap"><span class="log-icon">📸</span></div>
+        <h3>Puntos de Descanso</h3>
+        <p>Paradas estratégicas de descanso y fotografía seleccionadas para proteger el ecosistema y disfrutar del paisaje de manera segura y responsable.</p>
+      </div>
+      <div class="log-card reveal" data-delay="330">
+        <div class="log-top"></div><div class="log-glow"></div>
+        <div class="log-icon-wrap"><span class="log-icon">🧭</span></div>
+        <h3>Guías Locales</h3>
+        <p>Acompañamiento completo por guías nativos conocedores del territorio, la fauna, la flora y la historia del páramo Bordoncillo en toda la ruta.</p>
+      </div>
+      <div class="log-card reveal" data-delay="440">
+        <div class="log-top"></div><div class="log-glow"></div>
+        <div class="log-icon-wrap"><span class="log-icon">🌦️</span></div>
+        <h3>Monitoreo Climático</h3>
+        <p>Se monitorea el clima antes de cada salida. Ante condiciones extremas se reprogramará la caminata para garantizar la seguridad de todos los participantes.</p>
+      </div>
+      <div class="log-card reveal" data-delay="550">
+        <div class="log-top"></div><div class="log-glow"></div>
+        <div class="log-icon-wrap"><span class="log-icon">♻️</span></div>
+        <h3>Norma de No Rastro</h3>
+        <p>Todos los residuos generados deben retirarse del páramo. El principio de no dejar rastro es de cumplimiento obligatorio en todo el recorrido sin excepciones.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PLANES DE ALIMENTACIÓN -->
+<section class="section" id="planes">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="sec-num">03</span><div class="sec-line"></div>
+      <h2>Planes de <em>Alimentación</em></h2>
+    </div>
+    <div class="plans-grid">
+      <div class="plan featured reveal" data-delay="0">
+        <div class="plan-glow"></div>
+        <span class="plan-badge">⭐ Recomendado</span>
+        <h3>Plan con Alimentación Comunitaria</h3>
+        <p>Incluye una cuota adicional que cubre alimentación uniforme para todos los participantes, promoviendo integración grupal y mejor logística durante el recorrido.</p>
+        <p>Cada visitante puede llevar bebidas personales adicionales, entregando residuos a los guías para manejo responsable dentro del ecosistema.</p>
+        <ul class="plan-list">
+          <li>Alimentación incluida para todos</li>
+          <li>Mayor integración grupal</li>
+          <li>Logística simplificada en ruta</li>
+          <li>Manejo responsable de residuos</li>
+        </ul>
+      </div>
+      <div class="plan reveal" data-delay="160">
+        <div class="plan-glow"></div>
+        <h3>Plan Autónomo</h3>
+        <p>El participante lleva sus propios alimentos sin costo adicional. Ideal para quienes tienen requerimientos dietarios específicos o prefieren mayor independencia.</p>
+        <p>El visitante asume la responsabilidad total por sus residuos, respetando el principio de no dejar rastro en el páramo durante todo el trayecto.</p>
+        <ul class="plan-list">
+          <li>Sin costo adicional</li>
+          <li>Libertad de elección alimentaria</li>
+          <li>Responsabilidad total de residuos</li>
+          <li>Principio de no dejar rastro</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COSTOS -->
+<section class="section section-alt" id="costos">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="sec-num">04</span><div class="sec-line"></div>
+      <h2>Costo del <em>Viaje</em></h2>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card reveal" data-delay="0">
+        <h3>Recorrido Principal</h3>
+        <div class="price-amt">
+          <span class="price-cur">$</span>
+          <span class="price-num">40.000</span>
+          <span class="price-unit">COP / persona</span>
+        </div>
+        <div class="price-div"></div>
+        <p>Incluye la experiencia completa de senderismo interpretativo por el ecosistema de páramo, con acompañamiento de guías locales durante todo el recorrido.</p>
+        <p>Podrá apreciar lagunas de origen volcánico, frailejones y vegetación típica de alta montaña con panorámicas únicas del entorno andino.</p>
+        <a href="https://wa.me/573137247884" target="_blank" class="btn-prime" style="margin-top:22px;display:inline-flex;font-size:.63rem;padding:13px 26px;">📞 Reservar Este Plan</a>
+      </div>
+      <div class="price-card reveal" data-delay="160">
+        <span class="price-opt">✦ Extensión Opcional</span>
+        <h3>La Cocha de Moras</h3>
+        <div class="price-amt">
+          <span class="price-cur">+$</span>
+          <span class="price-num">10.000</span>
+          <span class="price-unit">COP / persona</span>
+        </div>
+        <div class="price-div"></div>
+        <p>Recorrido hasta la última laguna del sistema: <strong>La Cocha de Moras</strong>. Implica una caminata más extensa hacia zonas menos transitadas del páramo.</p>
+        <p>Recomendado para quienes desean la experiencia más completa y contemplar uno de los paisajes más conservados y hermosos del Bordoncillo.</p>
+        <a href="https://wa.me/573137247884" target="_blank" class="btn-prime" style="margin-top:22px;display:inline-flex;font-size:.63rem;padding:13px 26px;">📞 Añadir Extensión</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- RECOMENDACIONES -->
+<section class="section" id="recomendaciones">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="sec-num">05</span><div class="sec-line"></div>
+      <h2>Equipo y <em>Recomendaciones</em></h2>
+    </div>
+    <div class="rec-grid">
+      <div class="rec-col yes reveal" data-delay="0">
+        <h3><span class="rec-icon">✓</span> Debe Llevar</h3>
+        <ul>
+          <li><span class="rdot"></span>Agua suficiente para mantenerse hidratado durante todo el recorrido</li>
+          <li><span class="rdot"></span>Ropa térmica, impermeable y comoda para clima frio y cambiante</li>
+          <li><span class="rdot"></span>Calzado adecuado para terreno irregular</li>
+          <li><span class="rdot"></span>Protector solar, gorra o sombrero y guantes</li>
+          <li><span class="rdot"></span>Mochila ligera con sus elementos basicos</li>
+          <li><span class="rdot"></span>Portar alimentos livianos y energeticos (frutas, snacks, energizantes)</li>
+          <li><span class="rdot"></span>Contar con una buena condición fisica, adecuada para realizar caminatas</li>
+          <li><span class="rdot"></span>Revisar previamente el estado de los implementos y equipos personales</li>
+        </ul>
+      </div>
+      <div class="rec-col no reveal" data-delay="160">
+        <h3><span class="rec-icon">✕</span> No Debe Llevar</h3>
+        <ul>
+          <li><span class="rdot"></span>Objetos innecesarios o de mucho peso</li>
+          <li><span class="rdot"></span>Bebidas alcohólicas de ningún tipo</li>
+          <li><span class="rdot"></span>Plásticos de un solo uso ni elementos contaminantes</li>
+          <li><span class="rdot"></span>Equipos que alteren el entorno sonoro natural</li>
+          <li><span class="rdot"></span>Mascotas sin previa autorización del guía</li>
+          <li><span class="rdot"></span>Plantas o animales ajenos al ecosistema</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MAPA -->
+<section class="section section-alt" id="mapa">
+  <div class="container">
+    <div class="sec-head reveal">
+      <span class="sec-num">06</span><div class="sec-line"></div>
+      <h2>Ubicación <em>del Páramo</em></h2>
+    </div>
+    <div class="map-wrap reveal" data-delay="100">
+      <div class="map-hud">
+        <div class="map-hud-title"><span class="map-hud-dot"></span>Señal activa</div>
+       <div class="map-hud-val">1.220119° N · -77.111388° O</div>
+      </div>
+      <div id="map"></div>
+      <div class="map-layers">
+        <button class="mlb" data-layer="Satélite">Satélite</button>
+        <button class="mlb" data-layer="Topográfico">Topográfico</button>
+        <button class="mlb" data-layer="Calles">Calles</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA BANNER -->
+<section class="cta-banner">
+  <h2>¿Listo para <em>Explorar</em> el Páramo?</h2>
+  <p>Una experiencia única en uno de los ecosistemas de alta montaña más representativos de Nariño. Cupos limitados por recorrido.</p>
+  <a href="https://wa.me/573137247884" target="_blank" class="btn-prime">📞 Contactar y Agendar Ahora</a>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <div class="footer-logo">🌿 Páramo Bordoncillo</div>
+      <p class="footer-tagline">Ruta Ecoturística · Páramo Andino<br>Rosal del Monte, Buesaco, Nariño</p>
+    </div>
+    <div class="footer-col">
+      <h4>Navegación</h4>
+      <ul>
+        <li><a href="#info">Información General</a></li>
+        <li><a href="#logistica">Aspectos Operativos</a></li>
+        <li><a href="#planes">Planes de Alimentación</a></li>
+        <li><a href="#costos">Costo del Viaje</a></li>
+        <li><a href="#recomendaciones">Recomendaciones</a></li>
+        <li><a href="#mapa">Mapa y Ubicación</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Contacto</h4>
+      <p>Para reservas, información adicional y disponibilidad de fechas, comuníquese directamente con los guías locales.</p>
+      <br>
+      <p>📞 <a href="tel:3137247884" style="color:var(--accent);text-decoration:none;">313 724 7884</a></p>
+      <p style="margin-top:8px;"><a href="https://wa.me/573137247884" target="_blank" style="color:var(--accent);text-decoration:none;">💬 WhatsApp</a></p>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <div class="footer-copy">© 2026 Desarrollado por Roberth Edmundo Bravo Guaquez</div>
+    <div class="footer-signal"><div class="sig-dot"></div>Sistema activo · Nariño, Colombia</div>
+  </div>
+</footer>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+/* MIST */
+(function(){
+  const cv=document.getElementById('cv-mist'),ctx=cv.getContext('2d');
+  let W,H;
+  function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;}
+  resize();window.addEventListener('resize',resize);
+  class Blob{
+    constructor(){this.reset(true);}
+    reset(init){
+      this.x=Math.random()*W;this.y=init?Math.random()*H:H+80;
+      this.r=130+Math.random()*220;
+      this.vx=(Math.random()-.5)*.18;this.vy=-.04-Math.random()*.08;
+      this.a=0;this.ta=.022+Math.random()*.04;
+      this.life=0;this.maxLife=420+Math.random()*320;
+    }
+    update(){
+      this.x+=this.vx;this.y+=this.vy;this.life++;
+      this.a=this.ta*Math.sin(Math.PI*(this.life/this.maxLife));
+      if(this.life>=this.maxLife||this.y<-this.r)this.reset(false);
+    }
+    draw(){
+      const g=ctx.createRadialGradient(this.x,this.y,0,this.x,this.y,this.r);
+      g.addColorStop(0,`rgba(80,160,70,${this.a})`);
+      g.addColorStop(.5,`rgba(55,120,50,${this.a*.5})`);
+      g.addColorStop(1,`rgba(30,80,30,0)`);
+      ctx.fillStyle=g;ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fill();
+    }
+  }
+  const blobs=Array.from({length:16},()=>new Blob());
+  (function loop(){ctx.clearRect(0,0,W,H);blobs.forEach(b=>{b.update();b.draw();});requestAnimationFrame(loop);})();
+})();
+
+/* PARTICLES */
+(function(){
+  const cv=document.getElementById('cv-pts'),ctx=cv.getContext('2d');
+  let W,H,pts=[];const N=50,DIST=130;
+  function resize(){W=cv.width=window.innerWidth;H=cv.height=window.innerHeight;
+    pts=Array.from({length:N},()=>({x:Math.random()*W,y:Math.random()*H,vx:(Math.random()-.5)*.3,vy:(Math.random()-.5)*.3,r:.8+Math.random()*1.3}));
+  }
+  resize();window.addEventListener('resize',resize);
+  (function loop(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx;p.y+=p.vy;
+      if(p.x<0||p.x>W)p.vx*=-1;if(p.y<0||p.y>H)p.vy*=-1;
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(126,232,106,.55)';ctx.fill();
+    });
+    for(let i=0;i<N;i++)for(let j=i+1;j<N;j++){
+      const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);
+      if(d<DIST){ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.strokeStyle=`rgba(126,232,106,${(1-d/DIST)*.13})`;ctx.lineWidth=.5;ctx.stroke();}
+    }
+    requestAnimationFrame(loop);
+  })();
+})();
+
+/* CURSOR */
+const dot=document.getElementById('cur-dot'),ring=document.getElementById('cur-ring');
+let mx=-100,my=-100,rx=-100,ry=-100;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+(function anim(){
+  dot.style.left=mx+'px';dot.style.top=my+'px';
+  rx+=(mx-rx)*.12;ry+=(my-ry)*.12;
+  ring.style.left=rx+'px';ring.style.top=ry+'px';
+  requestAnimationFrame(anim);
+})();
+document.querySelectorAll('a,button,.eco-pill,.stat-item,.log-card,.plan,.price-card,.dp,.cdot,.rec-col').forEach(el=>{
+  el.addEventListener('mouseenter',()=>document.body.classList.add('cur-hover'));
+  el.addEventListener('mouseleave',()=>document.body.classList.remove('cur-hover'));
+});
+
+/* NAV */
+const nav=document.querySelector('nav');
+window.addEventListener('scroll',()=>nav.classList.toggle('scrolled',window.scrollY>40),{passive:true});
+const burger=document.querySelector('.hamburger'),mMenu=document.querySelector('.mobile-menu');
+burger.addEventListener('click',()=>{burger.classList.toggle('open');mMenu.classList.toggle('open');});
+mMenu.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{burger.classList.remove('open');mMenu.classList.remove('open');}));
+
+/* REVEAL */
+const ro=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.style.transitionDelay=(e.target.dataset.delay||0)+'ms';
+      e.target.classList.add('visible');
+    }
+  });
+},{threshold:.08});
+document.querySelectorAll('.reveal').forEach(el=>ro.observe(el));
+
+/* COUNTERS */
+function animCount(el,target,suffix){
+  let v=0;const step=target/70;
+  const t=setInterval(()=>{
+    v+=step;if(v>=target){v=target;clearInterval(t);}
+    el.textContent=Math.floor(v).toLocaleString('es-CO')+suffix;
+  },22);
+}
+const statsBar=document.querySelector('.stats-bar');
+if(statsBar){
+  new IntersectionObserver(entries=>{
+    if(entries[0].isIntersecting){
+      document.querySelectorAll('.stat-num').forEach(el=>animCount(el,+el.dataset.val,el.dataset.suf||''));
+      document.querySelectorAll('.stat-fill').forEach(el=>setTimeout(()=>el.style.width='100%',200));
+    }
+  },{threshold:.5}).observe(statsBar);
+}
+
+/* CARRUSEL INFORMACIÓN GENERAL */
+(function(){
+  const carousel=document.getElementById('infoCarousel');
+  if(!carousel)return;
+  const slides=carousel.querySelectorAll('.carousel-slide');
+  const dots=document.querySelectorAll('.carousel-dots .cdot');
+  if(slides.length<2)return;
+  let idx=0;
+  let timer=null;
+
+  function goTo(nextIdx){
+    const current=slides[idx];
+    const next=slides[nextIdx];
+
+    current.classList.remove('active');
+    current.classList.add('prev');
+
+    next.classList.remove('prev');
+    next.classList.add('active');
+
+    if(dots[idx])dots[idx].classList.remove('active');
+    if(dots[nextIdx])dots[nextIdx].classList.add('active');
+
+    setTimeout(()=>{
+      current.classList.remove('prev');
+      current.classList.add('notransition');
+      void current.offsetWidth; /* fuerza reflujo para reposicionar sin animación */
+      current.classList.remove('notransition');
+    },1150);
+
+    idx=nextIdx;
+  }
+
+  function start(){
+    timer=setInterval(()=>goTo((idx+1)%slides.length),3000);
+  }
+  function stop(){
+    clearInterval(timer);
+  }
+
+  start();
+  carousel.addEventListener('mouseenter',stop);
+  carousel.addEventListener('mouseleave',start);
+
+  dots.forEach((dot,i)=>{
+    dot.addEventListener('click',()=>{
+      if(i===idx)return;
+      stop();
+      goTo(i);
+      start();
+    });
+  });
+})();
+
+/* MAP */
+document.addEventListener('DOMContentLoaded',()=>{
+const LAT = 1.2201197552581406;
+const LNG = -77.11138769862846;
+
+const map = L.map('map', {zoomControl:false}).setView([LAT, LNG], 14);
+  const layers={
+    'Topográfico':L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'© OpenTopoMap',maxZoom:17}),
+    'Satélite':L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19}),
+    'Calles':L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}),
+  };
+  layers['Satélite'].addTo(map);
+  L.control.zoom({position:'topright'}).addTo(map);
+  const icon=L.divIcon({
+    className:'',
+    html:`<div style="position:relative;width:22px;height:22px;">
+      <div style="position:absolute;inset:0;border-radius:50%;background:#7ee86a;
+        box-shadow:0 0 0 3px rgba(13,31,14,.9),0 0 0 5px rgba(126,232,106,.5),0 0 26px rgba(126,232,106,.8);
+        animation:_mp 2s ease-in-out infinite;"></div>
+    </div>
+    <style>@keyframes _mp{0%,100%{transform:scale(1);}50%{transform:scale(1.3);}}</style>`,
+    iconSize:[22,22],iconAnchor:[11,11]
+  });
+  L.marker([LAT,LNG],{icon}).addTo(map)
+    .bindPopup(`<div style="padding:16px 18px;font-family:'DM Mono',monospace;min-width:210px;">
+      <div style="font-size:.56rem;letter-spacing:3px;color:#7ee86a;text-transform:uppercase;margin-bottom:5px;">📍 Ubicación</div>
+      <div style="color:#e8f5e2;font-weight:700;font-size:.98rem;margin-bottom:10px;font-family:'Playfair Display',serif;">Páramo Bordoncillo</div>
+      <div style="font-size:.6rem;color:#a8cca0;letter-spacing:1px;line-height:1.8;">
+        Rosal del Monte, Buesaco<br>Nariño · Colombia<br>
+        <span style="color:#7ee86a;">3.200 – 3.600 m.s.n.m.</span>
+      </div></div>`,{maxWidth:270}).openPopup();
+  const boundary = [
+  [1.224, -77.112],
+  [1.223, -77.107],
+  [1.220, -77.104],
+  [1.216, -77.106],
+  [1.215, -77.111],
+  [1.217, -77.115],
+  [1.221, -77.116]
+];
+  L.polygon(boundary,{color:'rgba(126,232,106,.6)',weight:1.5,fillColor:'rgba(126,232,106,.06)',fillOpacity:1,dashArray:'6 4'})
+    .addTo(map).bindTooltip('Zona Páramo Bordoncillo',{direction:'center'});
+  document.querySelectorAll('.mlb').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      document.querySelectorAll('.mlb').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      Object.values(layers).forEach(l=>map.removeLayer(l));
+      layers[btn.dataset.layer].addTo(map);
+    });
+  });
+  document.querySelector('.mlb[data-layer="Satélite"]').classList.add('active');
+});
+</script>
+</body>
+</html>
